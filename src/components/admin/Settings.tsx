@@ -1,7 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { db, collection, addDoc, onSnapshot, query, orderBy, OperationType, handleFirestoreError, deleteDoc, doc, updateDoc } from '../../firebase';
-import { Category, UserProfile, UserRole } from '../../types';
-import { Plus, Trash2, UserPlus, Shield, User as UserIcon, Check, X } from 'lucide-react';
+import { 
+  db, 
+  collection, 
+  addDoc, 
+  onSnapshot, 
+  query, 
+  orderBy, 
+  OperationType, 
+  handleFirestoreError, 
+  deleteDoc, 
+  doc, 
+  updateDoc,
+  setDoc,
+  getDoc,
+  storage,
+  ref,
+  uploadBytes,
+  getDownloadURL
+} from '../../firebase';
+import { Category, UserProfile, UserRole, AppConfig } from '../../types';
+import { Plus, Trash2, UserPlus, Shield, User as UserIcon, Check, X, Image as ImageIcon, Loader2, Save } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 interface SettingsProps {
@@ -11,8 +29,10 @@ interface SettingsProps {
 export default function Settings({ user }: SettingsProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [appConfig, setAppConfig] = useState<AppConfig>({ appName: 'BizControl' });
   const [newCategory, setNewCategory] = useState({ name: '', type: 'income' as 'income' | 'expense' });
   const [loading, setLoading] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   useEffect(() => {
     const qCat = query(collection(db, 'categories'), orderBy('name'));
@@ -25,9 +45,16 @@ export default function Settings({ user }: SettingsProps) {
       setUsers(snapshot.docs.map(doc => ({ ...doc.data() } as UserProfile)));
     });
 
+    const unsubscribeConfig = onSnapshot(doc(db, 'config', 'general'), (doc) => {
+      if (doc.exists()) {
+        setAppConfig(doc.data() as AppConfig);
+      }
+    });
+
     return () => {
       unsubscribeCat();
       unsubscribeUsers();
+      unsubscribeConfig();
     };
   }, []);
 
@@ -70,6 +97,41 @@ export default function Settings({ user }: SettingsProps) {
     }
   };
 
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 500 * 1024) {
+      alert("Logo is too large. Please use a file under 500KB.");
+      return;
+    }
+
+    setUploadingLogo(true);
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64String = reader.result as string;
+        await setDoc(doc(db, 'config', 'general'), { ...appConfig, logoURL: base64String }, { merge: true });
+        setUploadingLogo(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error("Logo upload failed", error);
+      alert("Failed to process logo.");
+      setUploadingLogo(false);
+    }
+  };
+
+  const updateAppName = async () => {
+    const name = prompt("Enter Application Name:", appConfig.appName || "BizControl");
+    if (!name) return;
+    try {
+      await setDoc(doc(db, 'config', 'general'), { ...appConfig, appName: name }, { merge: true });
+    } catch (error) {
+      alert("Failed to update app name.");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <header>
@@ -78,6 +140,43 @@ export default function Settings({ user }: SettingsProps) {
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* App Identity */}
+        <section className="card lg:col-span-2">
+          <div className="card-header">
+            <h3 className="text-sm font-bold">App Identity & Logo</h3>
+          </div>
+          <div className="p-6 flex flex-col md:flex-row items-center gap-8">
+            <div className="relative group">
+              <div className="w-24 h-24 rounded-2xl bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center overflow-hidden">
+                {uploadingLogo ? (
+                  <Loader2 className="w-8 h-8 text-primary-main animate-spin" />
+                ) : appConfig.logoURL ? (
+                  <img src={appConfig.logoURL} alt="App Logo" className="w-full h-full object-contain" />
+                ) : (
+                  <ImageIcon className="w-8 h-8 text-slate-400" />
+                )}
+              </div>
+              <label className="absolute -bottom-2 -right-2 bg-white border border-border-main p-2 rounded-lg shadow-sm cursor-pointer hover:bg-slate-50 transition-colors">
+                <Plus className="w-4 h-4 text-primary-main" />
+                <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} disabled={uploadingLogo} />
+              </label>
+            </div>
+            
+            <div className="flex-1 space-y-4">
+              <div>
+                <h4 className="text-lg font-bold text-text-main">{appConfig.appName || 'BizControl'}</h4>
+                <p className="text-xs text-text-muted">This name and logo will appear across the application.</p>
+              </div>
+              <button 
+                onClick={updateAppName}
+                className="btn-secondary text-xs py-2 px-4"
+              >
+                Change App Name
+              </button>
+            </div>
+          </div>
+        </section>
+
         {/* Category Management */}
         <section className="card">
           <div className="card-header">
