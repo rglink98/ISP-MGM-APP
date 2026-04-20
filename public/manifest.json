@@ -1,0 +1,21 @@
+{
+  "name": "ISP Manager",
+  "short_name": "ISP Mgr",
+  "description": "Manage your ISP business finances and inventory with ease.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#4f46e5",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "https://picsum.photos/seed/isp-logo/192/192",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://picsum.photos/seed/isp-logo/512/512",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
