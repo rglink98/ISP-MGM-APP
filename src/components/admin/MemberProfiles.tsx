@@ -103,22 +103,28 @@ export default function MemberProfiles({ user }: MemberProfilesProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Check file size (max 2MB)
-    if (file.size > 2 * 1024 * 1024) {
-      alert("File is too large. Max size is 2MB.");
+    // Check file size (max 500KB for base64 storage)
+    if (file.size > 500 * 1024) {
+      alert("File is too large. For the free version, please choose a photo under 500KB.");
       return;
     }
 
     setUploading(true);
     try {
-      const storageRef = ref(storage, `member-photos/${Date.now()}-${file.name}`);
-      const snapshot = await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(snapshot.ref);
-      setFormData({ ...formData, photoURL: downloadURL });
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        setFormData({ ...formData, photoURL: base64String });
+        setUploading(false);
+      };
+      reader.onerror = () => {
+        alert("Failed to read file.");
+        setUploading(false);
+      };
+      reader.readAsDataURL(file);
     } catch (error) {
       console.error("Upload failed", error);
-      alert("Failed to upload image. Please try again.");
-    } finally {
+      alert("Something went wrong with the image processing.");
       setUploading(false);
     }
   };
